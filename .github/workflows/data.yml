@@ -65,7 +65,7 @@ jobs:
         run: |
           mkdir -p tmp
           wget ${{ env.WEBBPSF_DATA_URL }} -O tmp/webbpsf-data.tar.gz
-          echo "hash=${{ hashFiles( 'tmp/webbpsf-data.tar.gz' }}" >> $GITHUB_OUTPUT
+          echo "hash=${{ hashFiles( 'tmp/webbpsf-data.tar.gz' ) }}" >> $GITHUB_OUTPUT
       - id: cache_path
         run: echo "path=${{ needs.path.outputs.path }}/webbpsf-data" >> $GITHUB_OUTPUT
       - id: cache_download
