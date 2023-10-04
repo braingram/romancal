@@ -95,7 +95,7 @@ jobs:
         run: |
           # use actions/gh-actions-cache to allow filtering by key
           gh extension install actions/gh-actions-cache
-          LATEST_CACHE=$(gh actions-cache list -R spacetelescope/romancal --key webbpsf- --sort created-at | cut -f 1 | head -n 1)
+          LATEST_CACHE=$(gh actions-cache list -R spacetelescope/romancal --key data- --sort created-at | cut -f 1 | head -n 1)
           echo "LATEST_CACHE=$LATEST_CACHE"
           HASH=$(echo $LATEST_CACHE | cut -d '-' -f 2)
           echo "hash=$HASH" >> $GITHUB_OUTPUT
