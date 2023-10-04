@@ -24,7 +24,10 @@ jobs:
     name: set data path
     runs-on: ubuntu-latest
     outputs:
-      path: /tmp/data
+      path: ${{ steps.path.outputs.path }}
+    steps:
+      - id: path
+        run: echo "path=/tmp/data" >> $GITHUB_OUTPUT
   crds:
     needs: [ path ]
     name: retrieve current CRDS context
