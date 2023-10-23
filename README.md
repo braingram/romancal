@@ -110,7 +110,7 @@ To install these dependencies, run the following:
 
 Need other useful packages in your development environment?
 
-    pip install ipython pytest-xdist
+    pip install ipython
 
 ## Calibration References Data System (CRDS) Setup
 
@@ -193,11 +193,6 @@ Unit tests can be run via `pytest`. Within the top level of your local `roman` r
 
     pip install -e ".[test]"
     pytest
-
-Need to parallelize your test runs over 8 cores?
-
-    pip install pytest-xdist
-    pytest -n 8
 
 ## Regression Tests
 

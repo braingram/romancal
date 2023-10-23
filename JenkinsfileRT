@@ -86,7 +86,7 @@ bc0.conda_packages = [
 bc0.pip_reqs_files = ['requirements-sdp.txt']
 bc0.build_cmds = [
     "pip install -e .[test]",
-    "pip install pytest-xdist pytest-sugar ddtrace",
+    "pip install pytest-sugar ddtrace",
     'echo "CRDS_CONTEXT = $(crds list --contexts $CRDS_CONTEXT --mappings | grep pmap)"',
     "mkdir data",
     "curl -L https://stsci.box.com/shared/static/0ojjfg3cieqdpd18vl1bjnpe63r82dx8.gz -o data/webbpsf-data.tar.gz",
@@ -97,10 +97,10 @@ bc0.build_cmds = bc0.build_cmds + [
     "pip list"
 ]
 bc0.test_cmds = [
-    "pytest -r sxf -n auto --bigdata --slow \
+    "pytest -r sxf --bigdata --slow \
     --cov --cov-report=xml:coverage.xml \
     --ddtrace \
-    --basetemp=${pytest_basetemp} --junit-xml=results.xml --dist=loadscope \
+    --basetemp=${pytest_basetemp} --junit-xml=results.xml \
     --env=${artifactoryenv} ${pytest_args}",
     "curl -Os https://uploader.codecov.io/latest/linux/codecov",
     "chmod +x codecov",

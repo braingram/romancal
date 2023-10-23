@@ -83,7 +83,7 @@ bc0.conda_packages = [
 bc0.pip_reqs_files = ['requirements-dev-thirdparty.txt']
 bc0.build_cmds = [
     "pip install -e .[test]",
-    "pip install pytest-xdist pytest-sugar",
+    "pip install pytest-sugar",
     'echo "CRDS_CONTEXT = $(crds list --contexts $CRDS_CONTEXT --mappings | grep pmap)"',
 ]
 bc0.build_cmds = bc0.build_cmds + PipInject(env.OVERRIDE_REQUIREMENTS)
@@ -91,8 +91,8 @@ bc0.build_cmds = bc0.build_cmds + [
     "pip list"
 ]
 bc0.test_cmds = [
-    "pytest -r sxf -n 0 --bigdata --slow \
-    --basetemp=${pytest_basetemp} --junit-xml=results.xml --dist=loadscope \
+    "pytest -r sxf --bigdata --slow \
+    --basetemp=${pytest_basetemp} --junit-xml=results.xml \
     --env=${artifactoryenv} ${pytest_args}",
 ]
 bc0.test_configs = [data_config]

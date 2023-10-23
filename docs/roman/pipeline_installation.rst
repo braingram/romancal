@@ -107,7 +107,7 @@ options to be installed
 Need other useful packages in your development environment?
 ::
 
-    $ pip install ipython pytest-xdist
+    $ pip install ipython
 
 Calibration References Data System (CRDS) Setup
 -----------------------------------------------
