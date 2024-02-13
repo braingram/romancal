@@ -766,4 +766,15 @@ def compare_asdf(result, truth, ignore=None, rtol=1e-05, atol=1e-08, equal_nan=T
             math_epsilon=atol,
             ignore_type_in_groups=[asdf.tags.core.NDArrayType, np.ndarray],
         )
+        import io
+
+        bs0 = io.BytesIO()
+        bs1 = io.BytesIO()
+        af0.write_to(bs0)
+        with asdf.config_context() as cfg:
+            cfg.all_array_save_base = False
+            af0.write_to(bs1)
+            assert bs0.tell() == bs1.tell(), str(
+                {"shared": bs0.tell(), "not-shared": bs1.tell()}
+            )
         return DiffResult(diff, result, truth)
