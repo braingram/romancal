@@ -377,6 +377,12 @@ def test_problem_pixel():
         [[0.5748081 , 0.40977696, 0.98458505]]
     ], dtype=np.float32)
 
+    import io
+    import logging
+    import sys
+    old = sys.stdout
+    b = io.StringIO()
+    sys.stdout = b
     output = ols_cas22_fit.fit_ramps_casertano(
         resultants,
         dq,
@@ -385,6 +391,8 @@ def test_problem_pixel():
         read_pattern=read_pattern,
         use_jump=use_jump,
     )
+    sys.stdout = old
+    logging.warning(f"Buffer: {b.getvalue()}")
     np.testing.assert_allclose(output.parameters, parameters, rtol=1e-05, atol=1e-08)
     np.testing.assert_allclose(output.variances, variances, rtol=1e-05, atol=1e-08)
 
