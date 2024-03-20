@@ -11,6 +11,7 @@ from roman_datamodels.datamodels import (
     RampModel,
     ReadnoiseRefModel,
 )
+from stcal.ramp_fitting import ols_cas22_fit
 
 from romancal.ramp_fitting import RampFitStep
 
@@ -337,3 +338,53 @@ def generate_wfi_reffiles(
 
     # return gainfile, readnoisefile
     return gain_ref_model, rn_ref_model, dark_ref_model
+
+
+
+def test_problem_pixel():
+    resultants = np.array([
+        [[-87451.984]],
+        [[-87497.97 ]],
+        [[-87406.484]],
+        [[-87360.38 ]],
+        [[-87360.43 ]],
+        [[-87314.69 ]],
+        [[-87360.5  ]],
+        [[-87314.76 ]],
+        [[-87360.555]],
+        [[-87314.805]]], dtype=np.float32)
+    dq = np.array([
+        [[0]],
+        [[0]],
+        [[0]],
+        [[0]],
+        [[0]],
+        [[0]],
+        [[0]],
+        [[0]],
+        [[0]],
+        [[0]]], dtype=np.uint8)
+    read_noise = np.array([
+        [6.311081]
+    ], dtype=np.float32)
+    read_time = 3.04
+    read_pattern = [[1], [2, 3], [5, 6, 7], [10, 11, 12, 13], [15, 16, 17, 18, 19, 20], [21, 22, 23, 24, 25, 26], [27, 28, 29, 30, 31, 32], [33, 34, 35, 36, 37, 38], [39, 40, 41, 42, 43], [44]]
+    use_jump = True
+    parameters = np.array([
+        [[0., 5.0947266]]
+    ], dtype=np.float32)
+    variances = np.array([
+        [[0.5748081 , 0.40977696, 0.98458505]]
+    ], dtype=np.float32)
+
+    output = ols_cas22_fit.fit_ramps_casertano(
+        resultants,
+        dq,
+        read_noise,
+        read_time,
+        read_pattern=read_pattern,
+        use_jump=use_jump,
+    )
+    np.testing.assert_allclose(output.parameters, parameters, rtol=1e-05, atol=1e-08)
+    np.testing.assert_allclose(output.variances, variances, rtol=1e-05, atol=1e-08)
+
