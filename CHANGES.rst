@@ -49,6 +49,11 @@ outlier_detection
 
 - Set ``single=True`` to use ``many_to_many`` when creating median image. [#1260]
 
+- Remove unused arguments to outlier detection. [#1357]
+
+- Update input handling to raise an exception on an invalid input instead
+  of issuing a warning and skipping the step. [#1357]
+
 stpipe
 ------
 
