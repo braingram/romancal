@@ -10,7 +10,7 @@ from stcal.alignment.util import compute_scale
 
 from ..assign_wcs import utils
 from ..datamodels import ModelLibrary
-from . import gwcs_drizzle, resample_utils
+from . import resample_utils, resampler
 
 log = logging.getLogger(__name__)
 log.setLevel(logging.DEBUG)
@@ -228,11 +228,18 @@ class ResampleData:
                 self.input_models.shelve(example_image, indices[0], modify=False)
 
                 # Initialize the output with the wcs
-                driz = gwcs_drizzle.GWCSDrizzle(
-                    output_model,
+                # FIXME don't use the model yet...
+                driz = resampler.Resampler(
+                    output_model.data.value,
+                    output_model.weight,
+                    output_model.context.astype(
+                        "int32"
+                    ),  # FIXME is this needed? it makes a copy
+                    self.output_wcs,
                     pixfrac=self.pixfrac,
                     kernel=self.kernel,
                     fillval=self.fillval,
+                    rollover_context=True,
                 )
 
                 log.info(f"{len(indices)} exposures to drizzle together")
@@ -253,24 +260,19 @@ class ResampleData:
                     else:
                         data = img.data
 
-                    xmin, xmax, ymin, ymax = resample_utils.resample_range(
-                        data.shape, img.meta.wcs.bounding_box
-                    )
-
                     driz.add_image(
-                        data,
+                        data.value,
                         img.meta.wcs,
-                        inwht=inwht,
-                        xmin=xmin,
-                        xmax=xmax,
-                        ymin=ymin,
-                        ymax=ymax,
+                        inwht,
                     )
                     del data
                     self.input_models.shelve(img, index)
 
                 # cast context array to uint32
-                output_model.context = output_model.context.astype("uint32")
+                # FIXME do I need to assign weight and data back?
+                output_model.context = output_model.context.astype(
+                    "uint32"
+                )  # FIXME another copy
 
                 # copy over asn information
                 if not self.in_memory:
@@ -309,9 +311,12 @@ class ResampleData:
             log.info("Skipping blendheaders for now.")
 
         # Initialize the output with the wcs
-        driz = gwcs_drizzle.GWCSDrizzle(
-            output_model,
-            outwcs=self.output_wcs,
+        # FIXME don't use a model yet...
+        driz = resampler.Resampler(
+            output_model.data.value,
+            output_model.weight,
+            output_model.context.astype("int32"),  # FIXME this casts and copies
+            self.output_wcs,
             pixfrac=self.pixfrac,
             kernel=self.kernel,
             fillval=self.fillval,
@@ -334,18 +339,10 @@ class ResampleData:
                 else:
                     data = img.data
 
-                xmin, xmax, ymin, ymax = resample_utils.resample_range(
-                    data.shape, img.meta.wcs.bounding_box
-                )
-
                 driz.add_image(
-                    data,
+                    data.value,
                     img.meta.wcs,
-                    inwht=inwht,
-                    xmin=xmin,
-                    xmax=xmax,
-                    ymin=ymin,
-                    ymax=ymax,
+                    inwht,
                 )
                 del data, inwht
                 self.input_models.shelve(img, i, modify=False)
@@ -356,6 +353,7 @@ class ResampleData:
             m["expname"] for m in self.input_models.asn["products"][0]["members"]
         ]
 
+        # FIXME reuse pixmap etc for the variance and exposure time resampling
         # Resample variances array in self.input_models to output_model
         self.resample_variance_array("var_rnoise", output_model)
         self.resample_variance_array("var_poisson", output_model)
@@ -382,7 +380,10 @@ class ResampleData:
         self.update_exposure_times(output_model, exptime_tot)
 
         # TODO: fix RAD to expect a context image datatype of int32
-        output_model.context = output_model.context.astype(np.uint32)
+        # TODO do I need to copy back data and weight
+        output_model.context = output_model.context.astype(
+            np.uint32
+        )  # FIXME this cast copies
 
         return ModelLibrary([output_model])
 
@@ -421,7 +422,7 @@ class ResampleData:
 
                 resampled_variance = np.zeros_like(output_model.data)
                 outwht = np.zeros_like(output_model.data)
-                outcon = np.zeros_like(output_model.context)
+                outcon = np.zeros_like(output_model.context, dtype="i4")
 
                 xmin, xmax, ymin, ymax = resample_utils.resample_range(
                     variance.shape, model.meta.wcs.bounding_box
