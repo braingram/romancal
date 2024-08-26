@@ -23,7 +23,6 @@ class Resampler:
         pixfrac=1.0,
         kernel="square",
         fillval="INDEF",
-        rollover_context=False,
     ):
         """
         Create a new Drizzle output object and set the drizzle parameters.
@@ -56,13 +55,10 @@ class Resampler:
         fillval : str, optional
             The value a pixel is set to in the output if the input image does
             not overlap it. The default value of INDEF does not set a value.
-
-        rollover_context : TODO
         """
 
         # Initialize the object fields
         self.uniqid = 0
-        self.rollover_context = rollover_context
 
         self.kernel = kernel
 
@@ -80,14 +76,15 @@ class Resampler:
         # FIXME this will need to be re-assigned back to the model
         self.outcon = outcon  # FIXME cast to int32?
 
-        if self.outcon.ndim == 2:
-            self.outcon = np.reshape(
-                self.outcon, (1, self.outcon.shape[0], self.outcon.shape[1])
-            )
-        elif self.outcon.ndim != 3:
-            raise ValueError(
-                f"Drizzle context image has wrong dimensions: {self.outcon.ndim}"
-            )
+        if self.outcon is not None:
+            if self.outcon.ndim == 2:
+                self.outcon = np.reshape(
+                    self.outcon, (1, self.outcon.shape[0], self.outcon.shape[1])
+                )
+            elif self.outcon.ndim != 3:
+                raise ValueError(
+                    f"Drizzle context image has wrong dimensions: {self.outcon.ndim}"
+                )
 
         # Check field values
         if not self.outwcs:
@@ -124,31 +121,34 @@ class Resampler:
             inwcs.bounding_box,
         )
 
-        self.increment_id()
-
         if xmax is None or xmax == xmin:
             xmax = insci.shape[1]
         if ymax is None or ymax == ymin:
             ymax = insci.shape[0]
 
-        # Compute what plane of the context image this input would
-        # correspond to:
-        planeid = int((self.uniqid - 1) / 32)
-
-        # Check if the context image has this many planes
-        if self.outcon.ndim == 3:
-            nplanes = self.outcon.shape[0]
-        elif self.outcon.ndim == 2:
-            nplanes = 1
+        if self.outcon is None:
+            outcon = self.outcon
         else:
-            nplanes = 0
+            self.increment_id()
 
-        if nplanes <= planeid:
-            raise IndexError("Not enough planes in drizzle context image")
+            # Compute what plane of the context image this input would
+            # correspond to:
+            planeid = int((self.uniqid - 1) / 32)
 
-        # Alias context image to the requested plane if 3d
-        if self.outcon.ndim == 3:
-            outcon = self.outcon[planeid]
+            # Check if the context image has this many planes
+            if self.outcon.ndim == 3:
+                nplanes = self.outcon.shape[0]
+            elif self.outcon.ndim == 2:
+                nplanes = 1
+            else:
+                nplanes = 0
+
+            if nplanes <= planeid:
+                raise IndexError("Not enough planes in drizzle context image")
+
+            # Alias context image to the requested plane if 3d
+            if self.outcon.ndim == 3:
+                outcon = self.outcon[planeid]
 
         # Compute the mapping between the input and output pixel coordinates
         # for use in drizzle.cdrizzle.tdriz
@@ -198,10 +198,6 @@ class Resampler:
         a new image is added. Each plane in the context image can hold 32 bits,
         so after each 32 images, a new plane is added to the context.
         """
-        if self.rollover_context:
-            self.uniqid = (self.uniqid + 1) % 32
-            return
-
         # Compute what plane of the context image this input would
         # correspond to:
         planeid = int(self.uniqid / 32)

@@ -251,8 +251,12 @@ class ResampleData:
         # so what does this use in the class
         output_list = []
         for group_id, indices in self.input_models.group_indices.items():
+            # do not allow mk_datamodel to make context as it will be unused below
+            # since it doesn't match dtype
             output_model = maker_utils.mk_datamodel(
-                datamodels.MosaicModel, shape=tuple(self.output_wcs.array_shape)
+                datamodels.MosaicModel,
+                shape=tuple(self.output_wcs.array_shape),
+                context=np.zeros((0, 0, 0), dtype=np.uint32),
             )
             output_model.meta["resample"] = maker_utils.mk_resample()
             output_model.meta.wcs = copy.deepcopy(self.output_wcs)
@@ -280,19 +284,23 @@ class ResampleData:
 
                 self.input_models.shelve(example_image, indices[0], modify=False)
 
+                # pre-allocate context array
+                nplanes = int(np.ceil(len(self.input_models) / 32))
+                data_shape = output_model.data.shape
+                outcon = np.zeros(
+                    (nplanes, data_shape[0], data_shape[1]), dtype=np.int32
+                )
+
                 # Initialize the output with the wcs
                 # FIXME don't use the model yet...
                 driz = resampler.Resampler(
                     output_model.data.value,
                     output_model.weight,
-                    output_model.context.astype(
-                        "int32"
-                    ),  # FIXME is this needed? it makes a copy
+                    outcon,
                     self.output_wcs,
                     pixfrac=self.pixfrac,
                     kernel=self.kernel,
                     fillval=self.fillval,
-                    rollover_context=True,
                 )
 
                 log.info(f"{len(indices)} exposures to drizzle together")
@@ -323,8 +331,7 @@ class ResampleData:
                     self.input_models.shelve(img, index)
 
                 # cast context array to uint32
-                # FIXME do I need to assign weight and data back?
-                output_model.context = output_model.context.astype(
+                output_model.context = driz.outcon.astype(
                     "uint32"
                 )  # FIXME another copy
 
@@ -370,17 +377,18 @@ class ResampleData:
         # - self.resample_exposure_time (function call)
         #   - (same as resample_variance_array)
         # - self.update_exposure_times (function call)
+        # don't make a context array as the dtype does not match and
+        # it won't be used below
         output_model = maker_utils.mk_datamodel(
-            datamodels.MosaicModel, shape=tuple(self.output_wcs.array_shape)
+            datamodels.MosaicModel,
+            shape=tuple(self.output_wcs.array_shape),
+            context=np.zeros((0, 0, 0), dtype=np.uint32),
         )
         output_model.meta.wcs = copy.deepcopy(self.output_wcs)
         blender = meta_blender.MetaBlender(output_model)
 
         # TODO should this also be in many_to_many?
         output_model.meta.filename = self.output_filename
-        output_model.meta["resample"] = maker_utils.mk_resample()
-        output_model.meta.resample.weight_type = self.weight_type
-        output_model.meta.resample.pointings = len(self.input_models.group_names)
 
         # copy over asn information
         if (asn_pool := self.input_models.asn.get("asn_pool", None)) is not None:
@@ -390,12 +398,17 @@ class ResampleData:
         ) is not None:
             output_model.meta.asn.table_name = asn_table_name
 
+        # pre-allocate the context array
+        nplanes = int(np.ceil(len(self.input_models) / 32))
+        data_shape = output_model.data.shape
+        outcon = np.zeros((nplanes, data_shape[0], data_shape[1]), dtype=np.int32)
+
         # Initialize the output with the wcs
         # FIXME don't use a model yet...
         driz = resampler.Resampler(
             output_model.data.value,
             output_model.weight,
-            output_model.context.astype("int32"),  # FIXME this casts and copies
+            outcon,
             self.output_wcs,
             pixfrac=self.pixfrac,
             kernel=self.kernel,
@@ -427,6 +440,10 @@ class ResampleData:
                 blender.blend(img)
                 del data, inwht
                 self.input_models.shelve(img, i, modify=False)
+
+        # TODO: fix RAD to expect a context image datatype of int32
+        # TODO do I need to copy back data and weight
+        output_model.context = driz.outcon.astype(np.uint32)  # FIXME this cast copies
 
         # record the actual filenames (the expname from the association)
         # for each file used to generate the output_model
@@ -460,11 +477,8 @@ class ResampleData:
 
         self.update_exposure_times(output_model, exptime_tot)
 
-        # TODO: fix RAD to expect a context image datatype of int32
-        # TODO do I need to copy back data and weight
-        output_model.context = output_model.context.astype(
-            np.uint32
-        )  # FIXME this cast copies
+        output_model.meta.resample.weight_type = self.weight_type
+        output_model.meta.resample.pointings = len(self.input_models.group_names)
         blender.finalize()
 
         return ModelLibrary([output_model])
@@ -504,7 +518,6 @@ class ResampleData:
 
                 resampled_variance = np.zeros_like(output_model.data)
                 outwht = np.zeros_like(output_model.data)
-                outcon = np.zeros_like(output_model.context, dtype="i4")
 
                 xmin, xmax, ymin, ymax = resample_utils.resample_range(
                     variance.shape, model.meta.wcs.bounding_box
@@ -518,7 +531,7 @@ class ResampleData:
                     output_wcs,
                     resampled_variance,
                     outwht,
-                    outcon,
+                    None,
                     pixfrac=self.pixfrac,
                     kernel=self.kernel,
                     fillval=np.nan,
@@ -574,8 +587,6 @@ class ResampleData:
 
                 resampled_exptime = np.zeros_like(output_model.data)
                 outwht = np.zeros_like(output_model.data)
-                outcon = np.zeros_like(output_model.context, dtype="i4")
-                # drizzle wants an i4, but datamodels wants a u4.
 
                 xmin, xmax, ymin, ymax = resample_utils.resample_range(
                     exptime.shape, model.meta.wcs.bounding_box
@@ -589,7 +600,7 @@ class ResampleData:
                     output_wcs,
                     resampled_exptime,
                     outwht,
-                    outcon,
+                    None,
                     pixfrac=1,  # for exposure time images, always use pixfrac = 1
                     kernel=self.kernel,
                     fillval=0,
@@ -755,24 +766,25 @@ class ResampleData:
         if inwht is None:
             inwht = np.ones_like(insci)
 
-        # Compute what plane of the context image this input would
-        # correspond to:
-        planeid = int((uniqid - 1) / 32)
+        if outcon is not None:
+            # Compute what plane of the context image this input would
+            # correspond to:
+            planeid = int((uniqid - 1) / 32)
 
-        # Check if the context image has this many planes
-        if outcon.ndim == 2:
-            nplanes = 1
-        elif outcon.ndim == 3:
-            nplanes = outcon.shape[0]
-        else:
-            nplanes = 0
+            # Check if the context image has this many planes
+            if outcon.ndim == 2:
+                nplanes = 1
+            elif outcon.ndim == 3:
+                nplanes = outcon.shape[0]
+            else:
+                nplanes = 0
 
-        if nplanes <= planeid:
-            raise IndexError("Not enough planes in drizzle context image")
+            if nplanes <= planeid:
+                raise IndexError("Not enough planes in drizzle context image")
 
-        # Alias context image to the requested plane if 3d
-        if outcon.ndim == 3:
-            outcon = outcon[planeid]
+            # Alias context image to the requested plane if 3d
+            if outcon.ndim == 3:
+                outcon = outcon[planeid]
 
         # Compute the mapping between the input and output pixel coordinates
         # for use in drizzle.cdrizzle.tdriz

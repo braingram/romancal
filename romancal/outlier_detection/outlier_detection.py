@@ -128,7 +128,9 @@ class OutlierDetection:
             # otherwise write it out as a normal (weighted) numpy array
             outsci = np.zeros(median_wcs.array_shape, dtype="f4")
             outwht = np.zeros(median_wcs.array_shape, dtype="f4")
-            outctx = np.zeros(median_wcs.array_shape, dtype="i4")
+            # only use an output context array if save_intermediate_results
+            # outctx = np.zeros(median_wcs.array_shape, dtype="i4")
+            outctx = None
             for group_id, indices in self.input_models.group_indices.items():
                 resampler = Resampler(
                     outsci,
@@ -138,7 +140,6 @@ class OutlierDetection:
                     pixfrac=pars.get("pixfrac"),
                     kernel=pars.get("kernel"),
                     fillval=pars.get("fillval"),
-                    rollover_context=True,
                 )
 
                 for index in indices:
