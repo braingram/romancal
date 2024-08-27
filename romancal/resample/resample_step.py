@@ -4,8 +4,6 @@ from copy import deepcopy
 
 import asdf
 import numpy as np
-from astropy.extern.configobj.configobj import ConfigObj
-from astropy.extern.configobj.validate import Validator
 from roman_datamodels import datamodels
 from stcal.alignment import util
 
@@ -46,10 +44,10 @@ class ResampleStep(RomanStep):
     class_alias = "resample"
 
     spec = """
-        pixfrac = float(default=1.0) # change back to None when drizpar reference files are updated
-        kernel = string(default='square') # change back to None when drizpar reference files are updated
-        fillval = string(default='INDEF' ) # change back to None when drizpar reference files are updated
-        weight_type = option('ivm', 'exptime', None, default='ivm')  # change back to None when drizpar ref update
+        pixfrac = float(default=1.0)
+        kernel = string(default='square')
+        fillval = string(default='INDEF' )
+        weight_type = option('ivm', 'exptime', None, default='ivm')
         output_shape = int_list(min=2, max=2, default=None)  # [x, y] order
         crpix = float_list(min=2, max=2, default=None)
         crval = float_list(min=2, max=2, default=None)
@@ -57,9 +55,6 @@ class ResampleStep(RomanStep):
         pixel_scale_ratio = float(default=1.0) # Ratio of input to output pixel scale
         pixel_scale = float(default=None) # Absolute pixel scale in arcsec
         output_wcs = string(default='')  # Custom output WCS.
-        single = boolean(default=False)
-        allowed_memory = float(default=None)  # Fraction of memory to use for the combined image.
-        in_memory = boolean(default=True)
         good_bits = string(default='~DO_NOT_USE+NON_SCIENCE')  # The good bits to use for building the resampling mask.
     """  # noqa: E501
 
@@ -101,38 +96,41 @@ class ResampleStep(RomanStep):
                 # resample can only handle 2D images, not 3D cubes, etc
                 raise RuntimeError(f"Input {input_models[0]} is not a 2D image.")
 
-        self.wht_type = self.weight_type
-        self.log.info("Setting drizzle's default parameters...")
-        kwargs = self.set_drizzle_defaults()
-        kwargs["allowed_memory"] = self.allowed_memory
-
         # Issue a warning about the use of exptime weighting
-        if self.wht_type == "exptime":
+        if self.weight_type == "exptime":
             self.log.warning("Use of EXPTIME weighting will result in incorrect")
             self.log.warning("propagated errors in the resampled product")
 
         # Custom output WCS parameters.
-        # Modify get_drizpars if any of these get into reference files:
-        kwargs["output_shape"] = self._check_list_pars(
+        self.output_shape = self._check_list_pars(
             self.output_shape, "output_shape", min_vals=[1, 1]
         )
-        kwargs["output_wcs"] = self._load_custom_wcs(
-            self.output_wcs, kwargs["output_shape"]
-        )
-        kwargs["crpix"] = self._check_list_pars(self.crpix, "crpix")
-        kwargs["crval"] = self._check_list_pars(self.crval, "crval")
-        kwargs["rotation"] = self.rotation
-        kwargs["pscale"] = self.pixel_scale
-        kwargs["pscale_ratio"] = self.pixel_scale_ratio
-        kwargs["in_memory"] = self.in_memory
+        self.output_wcs = self._load_custom_wcs(self.output_wcs, self.output_shape)
+        self.crpix = self._check_list_pars(self.crpix, "crpix")
+        self.crval = self._check_list_pars(self.crval, "crval")
 
         # Call the resampling routine
-        resamp = resample.ResampleData(input_models, output=output, **kwargs)
-        result = resamp.do_drizzle()
+        resamp = resample.ResampleData(
+            input_models,
+            output=output,
+            pixfrac=self.pixfrac,
+            kernel=self.kernel,
+            fillval=self.fillval,
+            weight_type=self.weight_type,
+            good_bits=self.good_bits,
+            pixel_scale_ratio=self.pixel_scale_ratio,
+            pixel_scale=self.pixel_scale,
+            output_wcs=self.output_wcs,
+            output_shape=self.output_shape,
+            crpix=self.crpix,
+            crval=self.crval,
+            rotation=self.rotation,
+        )
+        result = resamp.resample_many_to_one()
 
         with result:
             for i, model in enumerate(result):
-                self._final_updates(model, input_models, kwargs)
+                self._final_updates(model, input_models)
                 result.shelve(model, i)
             if len(result) == 1:
                 model = result.borrow(0)
@@ -141,7 +139,7 @@ class ResampleStep(RomanStep):
 
         return result
 
-    def _final_updates(self, model, input_models, kwargs):
+    def _final_updates(self, model, input_models):
         model.meta.cal_step["resample"] = "COMPLETE"
         model.meta.wcsinfo.s_region = util.compute_s_region_imaging(
             model.meta.wcs, model.data.shape
@@ -155,9 +153,9 @@ class ResampleStep(RomanStep):
             if self.pixel_scale
             else self.pixel_scale_ratio
         )
-        model.meta.resample.pixfrac = kwargs["pixfrac"]
+        model.meta.resample.pixfrac = self.pixfrac
         self.update_phot_keywords(model)
-        model.meta.resample["good_bits"] = kwargs["good_bits"]
+        model.meta.resample["good_bits"] = self.good_bits
 
     @staticmethod
     def _check_list_pars(vals, name, min_vals=None):
@@ -243,42 +241,3 @@ class ResampleStep(RomanStep):
             model.meta.photometry.pixelarea_arcsecsq *= (
                 model.meta.resample.pixel_scale_ratio**2
             )
-
-    def set_drizzle_defaults(self):
-        """Set the default parameters for drizzle."""
-        configspec = self.load_spec_file()
-        config = ConfigObj(configspec=configspec)
-        if config.validate(Validator()):
-            kwargs = config.dict()
-
-        if self.pixfrac is None:
-            self.pixfrac = 1.0
-        if self.kernel is None:
-            self.kernel = "square"
-        if self.fillval is None:
-            self.fillval = "INDEF"
-        # Force definition of good bits
-        kwargs["good_bits"] = self.good_bits
-        kwargs["pixfrac"] = self.pixfrac
-        kwargs["kernel"] = str(self.kernel)
-        kwargs["fillval"] = str(self.fillval)
-        #  self.weight_type has a default value of None
-        # The other instruments read this parameter from a reference file
-        if self.wht_type is None:
-            self.wht_type = "ivm"
-
-        kwargs["wht_type"] = str(self.wht_type)
-        kwargs["pscale_ratio"] = self.pixel_scale_ratio
-        kwargs.pop("pixel_scale_ratio")
-
-        for k, v in kwargs.items():
-            if k in [
-                "pixfrac",
-                "kernel",
-                "fillval",
-                "wht_type",
-                "pscale_ratio",
-            ]:
-                log.info("  using: %s=%s", k, repr(v))
-
-        return kwargs

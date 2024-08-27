@@ -294,41 +294,35 @@ def test_resampledata_init(exposure_1):
     """Test that ResampleData can set initial values."""
     input_models = ModelLibrary(exposure_1)
     output = "output.asdf"
-    single = False
     pixfrac = 0.8
     kernel = "turbo"
     fillval = 0.0
-    wht_type = "exp"
+    weight_type = "exp"
     good_bits = "1"
-    pscale_ratio = 0.5
-    pscale = 0.1
-    kwargs = {"in_memory": False}
+    pixel_scale_ratio = 0.5
+    pixel_scale = 0.1
 
     resample_data = ResampleData(
         input_models,
         output=output,
-        single=single,
         pixfrac=pixfrac,
         kernel=kernel,
         fillval=fillval,
-        wht_type=wht_type,
+        weight_type=weight_type,
         good_bits=good_bits,
-        pscale_ratio=pscale_ratio,
-        pscale=pscale,
-        **kwargs,
+        pixel_scale_ratio=pixel_scale_ratio,
+        pixel_scale=pixel_scale,
     )
 
     # Assert
     assert resample_data.input_models == input_models
     assert resample_data.output_filename == output
-    assert resample_data.pscale_ratio == pscale_ratio
-    assert resample_data.single == single
+    assert resample_data.pixel_scale_ratio == pixel_scale_ratio
     assert resample_data.pixfrac == pixfrac
     assert resample_data.kernel == kernel
     assert resample_data.fillval == fillval
-    assert resample_data.weight_type == wht_type
+    assert resample_data.weight_type == weight_type
     assert resample_data.good_bits == good_bits
-    assert resample_data.in_memory == kwargs["in_memory"]
 
 
 def test_resampledata_init_default(exposure_1):
@@ -341,14 +335,12 @@ def test_resampledata_init_default(exposure_1):
     # Assert
     assert resample_data.input_models == input_models
     assert resample_data.output_filename is None
-    assert resample_data.pscale_ratio == 1.0
-    assert not resample_data.single
+    assert resample_data.pixel_scale_ratio == 1.0
     assert resample_data.pixfrac == 1.0
     assert resample_data.kernel == "square"
     assert resample_data.fillval == "INDEF"
     assert resample_data.weight_type == "ivm"
     assert resample_data.good_bits == "0"
-    assert resample_data.in_memory
 
 
 @pytest.mark.parametrize("input_models", [list()])
@@ -658,17 +650,18 @@ def test_resampledata_do_drizzle_default_single_exposure_weight_array(
     """Test that resample methods return non-empty weight arrays."""
 
     input_models = ModelLibrary(exposure_1)
-    resample_data = ResampleData(input_models, wht_type=weight_type)
+    resample_data = ResampleData(input_models, weight_type=weight_type)
 
     output_models_many_to_one = resample_data.resample_many_to_one()
-    output_models_many_to_many = resample_data.resample_many_to_many()
+    # output_models_many_to_many = resample_data.resample_many_to_many()
 
-    with output_models_many_to_one, output_models_many_to_many:
-        many_to_many_model = output_models_many_to_many.borrow(0)
+    # with output_models_many_to_one, output_models_many_to_many:
+    with output_models_many_to_one:
+        # many_to_many_model = output_models_many_to_many.borrow(0)
         many_to_one_model = output_models_many_to_one.borrow(0)
         assert np.any(many_to_one_model.weight > 0)
-        assert np.any(many_to_many_model.weight > 0)
-        output_models_many_to_many.shelve(many_to_many_model, 0, modify=False)
+        # assert np.any(many_to_many_model.weight > 0)
+        # output_models_many_to_many.shelve(many_to_many_model, 0, modify=False)
         output_models_many_to_one.shelve(many_to_one_model, 0, modify=False)
 
 

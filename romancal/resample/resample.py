@@ -41,15 +41,18 @@ class ResampleData:
         self,
         input_models,
         output=None,
-        single=False,
         pixfrac=1.0,
         kernel="square",
         fillval="INDEF",
-        wht_type="ivm",
+        weight_type="ivm",
         good_bits="0",
-        pscale_ratio=1.0,
-        pscale=None,
-        **kwargs,
+        pixel_scale_ratio=1.0,
+        pixel_scale=None,
+        output_wcs=None,
+        output_shape=None,
+        crpix=None,
+        crval=None,
+        rotation=None,
     ):
         """
         Parameters
@@ -61,57 +64,9 @@ class ResampleData:
         output : str
             filename for output
 
-        kwargs : dict
-            Other parameters.
-
             .. note::
                 ``output_shape`` is in the ``x, y`` order.
-
-            .. note::
-                ``in_memory`` controls whether or not the resampled
-                array from ``resample_many_to_many()``
-                should be kept in memory or written out to disk and
-                deleted from memory. Default value is `True` to keep
-                all products in memory.
         """
-        # outlier detection calls this with:
-        # - input_models
-        # - single=True
-        # - **pars....
-        #   - weight_type
-        #   - pixfrac
-        #   - kernel
-        #   - fillval
-        #   - nlow
-        #   - nhigh
-        #   - maskpt
-        #   - grow
-        #   - snr
-        #   - scale
-        #   - backg
-        #   - kernel_size
-        #   - save_intermediate_results
-        #   - resample_data
-        #   - good_bits
-        #   - allowed_memory
-        #   - in_memory
-        #   - make_output_path
-        #   - resample_suffix
-        # resample calls this with:
-        # - input_models
-        # - output=output (is output_filename below)
-        # - **kwargs...
-        #   - everything in spec
-        #   - overwrite good_bits, pixfrac, kernel, fillval, wht_type, pscale_ratio (from pixel_scale_ratio)
-        #   - allowed_memory
-        #   - output_shape? (default None)
-        #   - output_wcs? (default '', becomes None)
-        #   - crpix? (default None)
-        #   - crval? (default None)
-        #   - rotation
-        #   - pscale (from pixel_scale, default None)
-        #   - pscale_ratio (from pixel_scale_ratio again?, default 1.0)
-        #   - in_memory
         if (input_models is None) or (len(input_models) == 0):
             raise ValueError(
                 "No input has been provided. Input must be a non-empty ModelLibrary"
@@ -119,31 +74,23 @@ class ResampleData:
 
         self.input_models = input_models
         self.output_filename = output
-        self.pscale_ratio = pscale_ratio
-        self.single = single
+        self.pixel_scale_ratio = pixel_scale_ratio
         self.pixfrac = pixfrac
         self.kernel = kernel
         self.fillval = fillval
-        self.weight_type = wht_type
+        self.weight_type = weight_type
         self.good_bits = good_bits
-        self.in_memory = kwargs.get("in_memory", True)
 
         log.info(f"Driz parameter kernel: {self.kernel}")
         log.info(f"Driz parameter pixfrac: {self.pixfrac}")
         log.info(f"Driz parameter fillval: {self.fillval}")
         log.info(f"Driz parameter weight_type: {self.weight_type}")
 
-        output_wcs = kwargs.get("output_wcs", None)
-        output_shape = kwargs.get("output_shape", None)
-        crpix = kwargs.get("crpix", None)
-        crval = kwargs.get("crval", None)
-        rotation = kwargs.get("rotation", None)
-
-        if pscale is not None:
-            log.info(f"Output pixel scale: {pscale} arcsec.")
-            pscale /= 3600.0
+        if pixel_scale is not None:
+            log.info(f"Output pixel scale: {pixel_scale} arcsec.")
+            pixel_scale /= 3600.0
         else:
-            log.info(f"Output pixel scale ratio: {pscale_ratio}")
+            log.info(f"Output pixel scale ratio: {pixel_scale_ratio}")
 
         # build the output WCS object
         if output_wcs:
@@ -157,8 +104,8 @@ class ResampleData:
                 # determine output WCS based on all inputs, including a reference WCS
                 self.output_wcs = resample_utils.make_output_wcs(
                     models,
-                    pscale_ratio=self.pscale_ratio,
-                    pscale=pscale,
+                    pscale_ratio=self.pixel_scale_ratio,
+                    pscale=pixel_scale,
                     rotation=rotation,
                     shape=None if output_shape is None else output_shape[::-1],
                     crpix=crpix,
@@ -168,140 +115,6 @@ class ResampleData:
                     self.input_models.shelve(m, i, modify=False)
 
         log.debug(f"Output mosaic size: {self.output_wcs.array_shape}")
-
-    def do_drizzle(self):
-        """Pick the correct drizzling mode based on ``self.single``."""
-        if self.single:
-            return self.resample_many_to_many()
-        else:
-            return self.resample_many_to_one()
-
-    def resample_many_to_many(self):
-        """Resample many inputs to many outputs where outputs have a common frame.
-
-        Coadd only different detectors of the same exposure (e.g. map SCA 1 and
-        10 onto the same output image), as they image different areas of the
-        sky.
-
-        Used for outlier detection
-        """
-        # this requires:
-        # -- computed --
-        # - self.blank_output (FIXME to remove this)
-        #
-        # -- from args or computed --
-        # - self.output_wcs
-        #
-        # -- from args --
-        # - self.input_models
-        # - self.pixfrac
-        # - self.kernel
-        # - self.fillval
-        # - self.weight_type
-        # - self.good_bits
-        # - self.in_memory
-        # so what does this use in the class
-        output_list = []
-        for group_id, indices in self.input_models.group_indices.items():
-            # do not allow mk_datamodel to make context as it will be unused below
-            # since it doesn't match dtype
-            output_model = maker_utils.mk_datamodel(
-                datamodels.MosaicModel,
-                shape=tuple(self.output_wcs.array_shape),
-                context=np.zeros((0, 0, 0), dtype=np.uint32),
-            )
-            output_model.meta["resample"] = maker_utils.mk_resample()
-            output_model.meta.wcs = copy.deepcopy(self.output_wcs)
-            blender = meta_blender.MetaBlender(output_model)
-
-            # copy over asn information
-            if (asn_pool := self.input_models.asn.get("asn_pool", None)) is not None:
-                output_model.meta.asn.pool_name = asn_pool
-            if (
-                asn_table_name := self.input_models.asn.get("table_name", None)
-            ) is not None:
-                output_model.meta.asn.table_name = asn_table_name
-
-            with self.input_models:
-                example_image = self.input_models.borrow(indices[0])
-
-                # Determine output file type from input exposure filenames
-                # Use this for defining the output filename
-                indx = example_image.meta.filename.rfind(".")
-                output_type = example_image.meta.filename[indx:]
-                output_root = "_".join(
-                    example_image.meta.filename.replace(output_type, "").split("_")[:-1]
-                )
-                output_model.meta.filename = f"{output_root}_outlier_i2d{output_type}"
-
-                self.input_models.shelve(example_image, indices[0], modify=False)
-
-                # pre-allocate context array
-                nplanes = int(np.ceil(len(self.input_models) / 32))
-                data_shape = output_model.data.shape
-                outcon = np.zeros(
-                    (nplanes, data_shape[0], data_shape[1]), dtype=np.int32
-                )
-
-                # Initialize the output with the wcs
-                # FIXME don't use the model yet...
-                driz = resampler.Resampler(
-                    output_model.data.value,
-                    output_model.weight,
-                    outcon,
-                    self.output_wcs,
-                    pixfrac=self.pixfrac,
-                    kernel=self.kernel,
-                    fillval=self.fillval,
-                )
-
-                log.info(f"{len(indices)} exposures to drizzle together")
-                for index in indices:
-                    img = self.input_models.borrow(index)
-                    # TODO: should weight_type=None here?
-                    inwht = resample_utils.build_driz_weight(
-                        img, weight_type=self.weight_type, good_bits=self.good_bits
-                    )
-
-                    # apply sky subtraction
-                    if (
-                        hasattr(img.meta, "background")
-                        and img.meta.background.subtracted is False
-                        and img.meta.background.level is not None
-                    ):
-                        data = img.data - img.meta.background.level
-                    else:
-                        data = img.data
-
-                    driz.add_image(
-                        data.value,
-                        img.meta.wcs,
-                        inwht,
-                    )
-                    del data
-                    blender.blend(img)
-                    self.input_models.shelve(img, index)
-
-                # cast context array to uint32
-                output_model.context = driz.outcon.astype(
-                    "uint32"
-                )  # FIXME another copy
-
-                blender.finalize()
-
-                # copy over asn information
-                if not self.in_memory:
-                    # Write out model to disk, then return filename
-                    output_name = output_model.meta.filename
-                    output_model.save(output_name)
-                    log.info(f"Exposure {output_name} saved to file")
-                    output_list.append(output_name)
-                else:
-                    output_list.append(output_model)
-                del blender
-                del output_model
-
-        return ModelLibrary(output_list)
 
     def resample_many_to_one(self):
         """Resample and coadd many inputs to a single output.
@@ -339,7 +152,6 @@ class ResampleData:
         output_model.meta.wcs = copy.deepcopy(self.output_wcs)
         blender = meta_blender.MetaBlender(output_model)
 
-        # TODO should this also be in many_to_many?
         output_model.meta.filename = self.output_filename
 
         # copy over asn information
