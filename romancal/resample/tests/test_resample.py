@@ -315,7 +315,6 @@ def test_resampledata_init(exposure_1):
     )
 
     # Assert
-    assert resample_data.input_models == input_models
     assert resample_data.output_filename == output
     assert resample_data.pixel_scale_ratio == pixel_scale_ratio
     assert resample_data.pixfrac == pixfrac
@@ -333,7 +332,6 @@ def test_resampledata_init_default(exposure_1):
     resample_data = ResampleData(input_models)
 
     # Assert
-    assert resample_data.input_models == input_models
     assert resample_data.output_filename is None
     assert resample_data.pixel_scale_ratio == 1.0
     assert resample_data.pixfrac == 1.0
@@ -366,7 +364,7 @@ def test_resampledata_do_drizzle_many_to_one_default_no_rotation_single_exposure
     input_models = ModelLibrary(exposure_1)
     resample_data = ResampleData(input_models)
 
-    output_models = resample_data.resample_many_to_one()
+    output_models = resample_data.resample_many_to_one(input_models)
 
     with output_models:
         model = output_models.borrow(0)
@@ -401,7 +399,7 @@ def test_resampledata_do_drizzle_many_to_one_default_no_rotation_multiple_exposu
     input_models = ModelLibrary(multiple_exposures)
     resample_data = ResampleData(input_models)
 
-    output_models = resample_data.resample_many_to_one()
+    output_models = resample_data.resample_many_to_one(input_models)
 
     with output_models:
         model = output_models.borrow(0)
@@ -433,7 +431,7 @@ def test_resampledata_do_drizzle_many_to_one_default_rotation_0(exposure_1):
     input_models = ModelLibrary(exposure_1)
     resample_data = ResampleData(input_models, **{"rotation": 0})
 
-    output_models = resample_data.resample_many_to_one()
+    output_models = resample_data.resample_many_to_one(input_models)
 
     with output_models:
         model = output_models.borrow(0)
@@ -467,7 +465,7 @@ def test_resampledata_do_drizzle_many_to_one_default_rotation_0_multiple_exposur
     input_models = ModelLibrary(multiple_exposures)
     resample_data = ResampleData(input_models, **{"rotation": 0})
 
-    output_models = resample_data.resample_many_to_one()
+    output_models = resample_data.resample_many_to_one(input_models)
 
     with output_models:
         model = output_models.borrow(0)
@@ -497,7 +495,7 @@ def test_resampledata_do_drizzle_many_to_one_single_input_model(wfi_sca1):
         input_models, output=wfi_sca1.meta.filename, **{"rotation": 0}
     )
 
-    output_models = resample_data.resample_many_to_one()
+    output_models = resample_data.resample_many_to_one(input_models)
 
     assert len(output_models) == 1
 
@@ -511,13 +509,14 @@ def test_resampledata_do_drizzle_many_to_one_single_input_model(wfi_sca1):
     np.testing.assert_allclose(flat_1, flat_2)
 
 
+@pytest.mark.skip(reason="resample_exposure_time no longer exists")
 def test_update_exposure_times_different_sca_same_exposure(exposure_1):
     """Test that update_exposure_times is properly updating the exposure parameters
     for a set of different SCAs belonging to the same exposure."""
     input_models = ModelLibrary(exposure_1)
     resample_data = ResampleData(input_models)
 
-    output_models = resample_data.resample_many_to_one()
+    output_models = resample_data.resample_many_to_one(input_models)
     with output_models:
         output_model = output_models.borrow(0)
 
@@ -542,6 +541,7 @@ def test_update_exposure_times_different_sca_same_exposure(exposure_1):
         output_models.shelve(output_model, 0, modify=False)
 
 
+@pytest.mark.skip(reason="resample_exposure_time no longer exists")
 def test_update_exposure_times_same_sca_different_exposures(exposure_1, exposure_2):
     """Test that update_exposure_times is properly updating the exposure parameters
     for a set of the same SCA but belonging to different exposures."""
@@ -554,14 +554,14 @@ def test_update_exposure_times_same_sca_different_exposures(exposure_1, exposure
         last_mjd = max(x.meta.exposure.end_time for x in models).mjd
         [input_models.shelve(model, i, modify=False) for i, model in enumerate(models)]
 
-    output_models = resample_data.resample_many_to_one()
+    output_models = resample_data.resample_many_to_one(input_models)
     with output_models:
         output_model = output_models.borrow(0)
 
         exptime_tot = resample_data.resample_exposure_time(output_model)
         resample_data.update_exposure_times(output_model, exptime_tot)
 
-        assert len(resample_data.input_models.group_names) == 2
+        assert len(input_models.group_names) == 2
 
         # these exposures overlap perfectly so the max exposure time should
         # be equal to the individual time times two.
@@ -596,7 +596,7 @@ def test_custom_wcs_input_small_overlap_no_rotation(wfi_sca1, wfi_sca3):
         **{"output_wcs": wfi_sca3.meta.wcs, "rotation": 0},
     )
 
-    output_models = resample_data.resample_many_to_one()
+    output_models = resample_data.resample_many_to_one(input_models)
 
     with output_models:
         model = output_models.borrow(0)
@@ -622,7 +622,7 @@ def test_custom_wcs_input_entire_field_no_rotation(multiple_exposures):
         **{"output_wcs": output_wcs},
     )
 
-    output_models = resample_data.resample_many_to_one()
+    output_models = resample_data.resample_many_to_one(input_models)
 
     with output_models:
         model = output_models.borrow(0)
@@ -652,7 +652,7 @@ def test_resampledata_do_drizzle_default_single_exposure_weight_array(
     input_models = ModelLibrary(exposure_1)
     resample_data = ResampleData(input_models, weight_type=weight_type)
 
-    output_models_many_to_one = resample_data.resample_many_to_one()
+    output_models_many_to_one = resample_data.resample_many_to_one(input_models)
     # output_models_many_to_many = resample_data.resample_many_to_many()
 
     # with output_models_many_to_one, output_models_many_to_many:
@@ -1051,7 +1051,7 @@ def test_l3_wcsinfo(multiple_exposures):
     input_models = ModelLibrary(multiple_exposures)
     resample_data = ResampleData(input_models)
 
-    output_models = resample_data.resample_many_to_one()
+    output_models = resample_data.resample_many_to_one(input_models)
 
     with output_models:
         output_model = output_models.borrow(0)

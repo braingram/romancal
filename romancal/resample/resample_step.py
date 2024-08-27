@@ -126,7 +126,7 @@ class ResampleStep(RomanStep):
             crval=self.crval,
             rotation=self.rotation,
         )
-        result = resamp.resample_many_to_one()
+        result = resamp.resample_many_to_one(input_models)
 
         with result:
             for i, model in enumerate(result):
