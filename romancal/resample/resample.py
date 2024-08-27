@@ -178,10 +178,6 @@ class ResampleData:
         )
 
         # Initialize the variance arrays
-        # We can just use a single outwht for
-        # all the non-data arrays (as it's not used)
-        out_var_wht = np.zeros_like(output_model.var_rnoise, dtype="f4")
-
         var_sums = {}
         for var_name in ("var_rnoise", "var_poisson", "var_flat"):
             # TODO use a single consistent data_shape?
@@ -191,7 +187,8 @@ class ResampleData:
             getattr(output_model, var_name).value[:] = np.nan
             resamplers[var_name] = resampler.Resampler(
                 getattr(output_model, var_name).value,
-                out_var_wht,
+                # TODO use a single consistent data_shape?
+                np.zeros(output_model.var_rnoise.shape, dtype="f4"),
                 None,
                 self.output_wcs,
                 pixfrac=self.pixfrac,
@@ -203,7 +200,7 @@ class ResampleData:
         exptime_tot = np.zeros(output_model.data.shape, dtype="f4")
         resamplers["exptime"] = resampler.Resampler(
             np.zeros(output_model.data.shape, dtype="f4"),
-            out_var_wht,
+            np.zeros(output_model.data.shape, dtype="f4"),
             None,
             self.output_wcs,
             pixfrac=1.0,
@@ -333,6 +330,7 @@ class ResampleData:
             unit=output_model.err.unit,
         )
 
+        # TODO avoid another iteration through input_models in update_exposure_times
         self.update_exposure_times(input_models, output_model, exptime_tot)
         del exptime_tot
 
