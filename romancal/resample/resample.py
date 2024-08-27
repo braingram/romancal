@@ -188,7 +188,7 @@ class ResampleData:
             resamplers[var_name] = resampler.Resampler(
                 getattr(output_model, var_name).value,
                 # TODO use a single consistent data_shape?
-                np.zeros(output_model.var_rnoise.shape, dtype="f4"),
+                np.zeros(getattr(output_model, var_name).shape, dtype="f4"),
                 None,
                 self.output_wcs,
                 pixfrac=self.pixfrac,
@@ -244,9 +244,6 @@ class ResampleData:
                     good_bits=self.good_bits,
                 )
 
-                # I think we can use resamplers here as long as we
-                # reset the outsci array after each use (to the fillval)
-
                 # dispatch other arrays to resample: (all with weight_type=None)
                 for var_name in ("var_rnoise", "var_poisson", "var_flat"):
                     var_resampler = resamplers[var_name]
@@ -270,6 +267,7 @@ class ResampleData:
 
                     # reset resampler for next image
                     var_resampler.outsci[:] = np.nan
+                    var_resampler.outwht[:] = 0
                     del var_resampler
 
                 # exposure time
@@ -287,6 +285,7 @@ class ResampleData:
                 )
                 exptime_tot += resamplers["exptime"].outsci
                 resamplers["exptime"].outsci[:] = 0
+                resamplers["exptime"].outwht[:] = 0
                 del exp_data, var_wht
 
                 blender.blend(img)
@@ -330,7 +329,6 @@ class ResampleData:
             unit=output_model.err.unit,
         )
 
-        # TODO avoid another iteration through input_models in update_exposure_times
         self.update_exposure_times(input_models, output_model, exptime_tot)
         del exptime_tot
 
