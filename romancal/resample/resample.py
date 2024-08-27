@@ -169,54 +169,6 @@ class ResampleData:
 
         log.debug(f"Output mosaic size: {self.output_wcs.array_shape}")
 
-        # NOTE: should we enable memory allocation?
-
-        # can_allocate, required_memory = datamodels.util.check_memory_allocation(
-        #     self.output_wcs.array_shape,
-        #     kwargs['allowed_memory'],
-        #     datamodels.ImageModel
-        # )
-        # if not can_allocate:
-        #     raise OutputTooLargeError(
-        #         f'Combined ImageModel size {self.output_wcs.array_shape} '
-        #         f'requires {bytes2human(required_memory)}. '
-        #         f'Model cannot be instantiated.'
-        #     )
-
-        # NOTE: wait for William to fix bug in datamodels' init and then
-        # use datamodels.ImageModel(shape=(nx, ny)) instead of mk_datamodel()
-
-        # n_images sets the number of context image planes.
-        # This should be 1 to start (not the default of 2).
-        # self.blank_output = maker_utils.mk_datamodel(
-        #     datamodels.MosaicModel, n_images=1, shape=tuple(self.output_wcs.array_shape)
-        # )
-
-        # with self.input_models:
-        #     models = list(self.input_models)
-
-        #     # update meta.basic
-        #     populate_mosaic_basic(self.blank_output, models)
-
-        #     # update meta.cal_step
-        #     self.blank_output.meta.cal_step = maker_utils.mk_l3_cal_step(
-        #         **models[0].meta.cal_step.to_flat_dict()
-        #     )
-
-        #     # Update the output with all the component metas
-        #     populate_mosaic_individual(self.blank_output, models)
-
-        #     # update meta data and wcs
-        #     l2_into_l3_meta(self.blank_output.meta, models[0].meta)
-        #     self.blank_output.meta.wcs = self.output_wcs
-        #     gwcs_into_l3(self.blank_output, self.output_wcs)
-        #     self.blank_output.cal_logs = stnode.CalLogs()
-        #     self.blank_output["individual_image_cal_logs"] = [
-        #         model.cal_logs for model in models
-        #     ]
-        #     for i, m in enumerate(models):
-        #         self.input_models.shelve(m, i, modify=False)
-
     def do_drizzle(self):
         """Pick the correct drizzling mode based on ``self.single``."""
         if self.single:
