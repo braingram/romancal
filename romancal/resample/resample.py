@@ -120,9 +120,6 @@ class ResampleData:
         Used for level 3 resampling
         """
         # this requires:
-        # -- computed --
-        # - self.blank_output (FIXME to remove this)
-        #
         # -- from args or computed --
         # - self.output_wcs
         #
@@ -135,18 +132,18 @@ class ResampleData:
         # - self.weight_type
         # - self.good_bits
         #
-        # - self.resample_variance_array (function call)
-        #   - self.drizzle_arrays (function call)
-        #   - (other stuff from above)
-        # - self.resample_exposure_time (function call)
-        #   - (same as resample_variance_array)
         # - self.update_exposure_times (function call)
-        # don't make a context array as the dtype does not match and
-        # it won't be used below
+
+        # pre-allocate the context array
+        data_shape = tuple(self.output_wcs.array_shape)
+
         output_model = maker_utils.mk_datamodel(
             datamodels.MosaicModel,
-            shape=tuple(self.output_wcs.array_shape),
-            context=np.zeros((0, 0, 0), dtype=np.uint32),
+            shape=data_shape,
+            context=np.zeros(
+                (int(np.ceil(len(input_models) / 32)), data_shape[0], data_shape[1]),
+                dtype=np.uint32,
+            ),
         )
         output_model.meta.wcs = copy.deepcopy(self.output_wcs)
         blender = meta_blender.MetaBlender(output_model)
@@ -159,18 +156,13 @@ class ResampleData:
         if (asn_table_name := input_models.asn.get("table_name", None)) is not None:
             output_model.meta.asn.table_name = asn_table_name
 
-        # pre-allocate the context array
-        nplanes = int(np.ceil(len(input_models) / 32))
-        data_shape = output_model.data.shape
-        outcon = np.zeros((nplanes, data_shape[0], data_shape[1]), dtype=np.int32)
-
         resamplers = {}
 
         # Initialize the output with the wcs
         resamplers["data"] = resampler.Resampler(
             output_model.data.value,
             output_model.weight,
-            outcon,
+            output_model.context.view("int32"),  # drizzle expects an int32
             self.output_wcs,
             pixfrac=self.pixfrac,
             kernel=self.kernel,
@@ -178,34 +170,18 @@ class ResampleData:
         )
 
         # Initialize the variance arrays
-        var_sums = {}
         for var_name in ("var_rnoise", "var_poisson", "var_flat"):
-            # TODO use a single consistent data_shape?
-            var_sums[var_name] = np.full(
-                getattr(output_model, var_name).shape, np.nan, dtype="f4"
-            )
-            getattr(output_model, var_name).value[:] = np.nan
-            resamplers[var_name] = resampler.Resampler(
+            resamplers[var_name] = resampler.VarianceResampler(
                 getattr(output_model, var_name).value,
-                # TODO use a single consistent data_shape?
-                np.zeros(getattr(output_model, var_name).shape, dtype="f4"),
-                None,
                 self.output_wcs,
                 pixfrac=self.pixfrac,
                 kernel=self.kernel,
-                fillval=np.nan,
             )
 
         # Initialize the exposure time result
-        exptime_tot = np.zeros(output_model.data.shape, dtype="f4")
-        resamplers["exptime"] = resampler.Resampler(
-            np.zeros(output_model.data.shape, dtype="f4"),
-            np.zeros(output_model.data.shape, dtype="f4"),
-            None,
+        resamplers["exptime"] = resampler.ExptimeResampler(
             self.output_wcs,
-            pixfrac=1.0,
             kernel=self.kernel,
-            fillval=0,
         )
 
         log.info("Resampling science data")
@@ -246,59 +222,31 @@ class ResampleData:
 
                 # dispatch other arrays to resample: (all with weight_type=None)
                 for var_name in ("var_rnoise", "var_poisson", "var_flat"):
-                    var_resampler = resamplers[var_name]
-                    var_resampler.add_image(
+                    resamplers[var_name].add_image(
                         getattr(img, var_name).value,
                         img.meta.wcs,
                         var_wht,
                         pixmap=pixmap,
                     )
-                    mask = var_resampler.outsci > 0
-                    var_sum = var_sums[var_name]
-                    # TODO improve this to avoid the extra copies
-                    var_sum[mask] = np.nansum(
-                        [
-                            var_sum[mask],
-                            np.reciprocal(var_resampler.outsci[mask]),
-                        ],
-                        axis=0,
-                    )
-                    # np.add(var_sum, resampler.outsci, out=var_sum, where=resampler.outsci > 0)
-
-                    # reset resampler for next image
-                    var_resampler.outsci[:] = np.nan
-                    var_resampler.outwht[:] = 0
-                    del var_resampler
 
                 # exposure time
-                # TODO pre-allocate...
-                exp_data = np.full(
-                    img.data.shape,
-                    img.meta.exposure.effective_exposure_time,
-                    dtype="f4",
-                )
+                # TODO pre-allocate exp_data/insci used here
                 resamplers["exptime"].add_image(
-                    exp_data,
+                    np.full(
+                        img.data.shape,
+                        img.meta.exposure.effective_exposure_time,
+                        dtype="f4",
+                    ),
                     img.meta.wcs,
                     var_wht,
                     pixmap=pixmap,
                 )
-                exptime_tot += resamplers["exptime"].outsci
-                resamplers["exptime"].outsci[:] = 0
-                resamplers["exptime"].outwht[:] = 0
-                del exp_data, var_wht
+                del var_wht
 
                 blender.blend(img)
 
                 input_models.shelve(img, i, modify=False)
                 del img
-
-        # TODO: fix RAD to expect a context image datatype of int32
-        # TODO do I need to copy back data and weight
-        output_model.context = resamplers["data"].outcon.astype(
-            np.uint32
-        )  # FIXME this cast copies
-        del resamplers
 
         # record the actual filenames (the expname from the association)
         # for each file used to generate the output_model
@@ -308,10 +256,10 @@ class ResampleData:
 
         # finalize variance calculations
         for var_name in ("var_rnoise", "var_poisson", "var_flat"):
-            getattr(output_model, var_name).value[:] = np.reciprocal(
-                var_sums[var_name], out=var_sums[var_name]
+            np.reciprocal(
+                resamplers[var_name].var_sum,
+                out=getattr(output_model, var_name).value,
             )
-        del var_sums
 
         # TODO: fix unit here
         # TODO avoid the extra copies
@@ -329,8 +277,10 @@ class ResampleData:
             unit=output_model.err.unit,
         )
 
-        self.update_exposure_times(input_models, output_model, exptime_tot)
-        del exptime_tot
+        self.update_exposure_times(
+            input_models, output_model, resamplers["exptime"].total
+        )
+        del resamplers
 
         output_model.meta.resample.weight_type = self.weight_type
         output_model.meta.resample.pointings = len(input_models.group_names)

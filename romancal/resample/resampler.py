@@ -73,8 +73,9 @@ class Resampler:
         self.outwcs = outwcs
         self.outsci = outsci
         self.outwht = outwht
-        # FIXME this will need to be re-assigned back to the model
-        self.outcon = outcon  # FIXME cast to int32?
+        # this will need to be re-assigned back to the model for romancal
+        # as rad defines a uint32 not int32 array
+        self.outcon = outcon
 
         if self.outcon is not None:
             if self.outcon.ndim == 2:
@@ -211,3 +212,70 @@ class Resampler:
 
         # Increment the id
         self.uniqid += 1
+
+
+class VarianceResampler(Resampler):
+    def __init__(
+        self,
+        outsci,
+        outwcs,
+        pixfrac=1.0,
+        kernel="square",
+    ):
+        self.var_sum = np.full(outsci.shape, np.nan, dtype="f4")
+        return super().__init__(
+            outsci,
+            np.zeros(outsci.shape, dtype="f4"),
+            None,
+            outwcs,
+            pixfrac=pixfrac,
+            kernel=kernel,
+            fillval=np.nan,
+        )
+
+    def add_image(self, insci, inwcs, inwht, pixmap=None):
+        # start fresh
+        self.outsci[:] = np.nan
+        self.outwht[:] = 0
+
+        super().add_image(insci, inwcs, inwht, pixmap=pixmap)
+
+        # update var_sum
+        # TODO improve this to avoid the extra copies
+        mask = self.outsci > 0
+        self.var_sum[mask] = np.nansum(
+            [
+                self.var_sum[mask],
+                np.reciprocal(self.outsci[mask]),
+            ],
+            axis=0,
+        )
+
+
+class ExptimeResampler(Resampler):
+    def __init__(
+        self,
+        outwcs,
+        kernel="square",
+    ):
+        self.total = np.zeros(outwcs.array_shape, dtype="f4")
+        super().__init__(
+            np.zeros(outwcs.array_shape, dtype="f4"),
+            np.zeros(outwcs.array_shape, dtype="f4"),
+            None,
+            outwcs,
+            pixfrac=1.0,
+            kernel=kernel,
+            fillval=0,
+        )
+
+    def add_image(self, insci, inwcs, inwht, pixmap=None):
+        # start fresh
+        self.outsci[:] = 0
+        self.outwht[:] = 0
+
+        # TODO can we pre-allocate exp_data/insci here? One issue
+        # is not knowing the input data size before this point.
+        super().add_image(insci, inwcs, inwht, pixmap=pixmap)
+
+        self.total += self.outsci
