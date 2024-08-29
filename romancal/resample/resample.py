@@ -4,9 +4,11 @@ import logging
 import numpy as np
 from astropy import units as u
 from roman_datamodels import datamodels, maker_utils
+from stcal.outlier_detection.utils import calc_gwcs_pixmap
+from stcal.resample import resampler
 
 from ..datamodels import ModelLibrary
-from . import meta_blender, resample_utils, resampler
+from . import meta_blender, resample_utils
 
 log = logging.getLogger(__name__)
 log.setLevel(logging.DEBUG)
@@ -202,9 +204,7 @@ class ResampleData:
                     data = img.data
 
                 # compute pixmap to use for all operations...
-                pixmap = resample_utils.calc_gwcs_pixmap(
-                    img.meta.wcs, self.output_wcs, data.shape
-                )
+                pixmap = calc_gwcs_pixmap(img.meta.wcs, self.output_wcs, data.shape)
 
                 resamplers["data"].add_image(
                     data.value,

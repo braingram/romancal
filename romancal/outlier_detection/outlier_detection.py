@@ -11,10 +11,11 @@ from drizzle.cdrizzle import tblot
 from roman_datamodels.dqflags import pixel
 from scipy import ndimage
 from stcal.alignment.util import wcs_from_footprints
+from stcal.outlier_detection.utils import calc_gwcs_pixmap
+from stcal.resample.resampler import Resampler
 
 from romancal.assign_wcs.utils import wcs_bbox_from_shape
-from romancal.resample.resample_utils import build_driz_weight, calc_gwcs_pixmap
-from romancal.resample.resampler import Resampler
+from romancal.resample.resample_utils import build_driz_weight
 
 from ..stpipe import RomanStep
 from .array_library import ArrayLibrary
