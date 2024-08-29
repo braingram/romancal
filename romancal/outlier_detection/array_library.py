@@ -10,6 +10,8 @@ class ArrayLibrary:
         self._temp_dir = tempfile.TemporaryDirectory(dir=tempdir)
         self._temp_path = Path(self._temp_dir.name)
         self._filenames = []
+        self._data_shape = None
+        self._data_dtype = None
 
     @property
     def closed(self):
@@ -35,7 +37,26 @@ class ArrayLibrary:
         fn = self._filenames[index]
         return np.load(fn)
 
+    def _validate_input(self, arr):
+        if arr.ndim != 2:
+            raise Exception(f"Only 2D arrays are supported: {arr.ndim}")
+        if self._data_shape is None:
+            self._data_shape = arr.shape
+        else:
+            if arr.shape != self._data_shape:
+                raise Exception(
+                    f"Input shape mismatch: {arr.shape} != {self._data_shape}"
+                )
+        if self._data_dtype is None:
+            self._data_dtype = arr.dtype
+        else:
+            if arr.dtype != self._data_dtype:
+                raise Exception(
+                    f"Input dtype mismatch: {arr.dtype} != {self._data_dtype}"
+                )
+
     def __setitem__(self, index, value):
+        self._validate_input(value)
         if self.closed:
             raise Exception("use after close")
         fn = self._filenames[index]
@@ -51,34 +72,40 @@ class ArrayLibrary:
         self._filenames.append(None)
         self.__setitem__(index, value)
 
-    def median(self):
+    def median(self, buffer_size=100 << 20):
         if self.closed:
             raise Exception("use after close")
         if not len(self):
             raise Exception("can't take median of empty list")
-        return np.nanmedian(self, axis=0)
-        # TODO make something like get_sections here
-        # buffer = None
-        # n_arrays = len(self)
-        # allowed_memory = 100 << 20  # 100 MB
 
-        # # figure out how big the buffer can be
-        # allowed_memory_per_array = allowed_memory / n_arrays
-        # # we'll allocated a buffer that is:
-        # # [n_arrays, d0, some_subset_of_d1]
-        # # but we don't yet know d0 so can't calculate the subset
-        # # FIXME for now just load the first array
-        # example_array = self[0]
-        # dtype = example_array.dtype
-        # shape = example_array.shape
-        # if example_array.ndim != 2:
-        #     raise Exception(f"Only works for 2 dimensions: {example_array.ndim}")
-        # n_bytes_per_item = dtype.itemsize
-        # n_dim_1 = allowed_memory_per_array // (n_bytes_per_item * shape[0])
-        # if n_dim_1 < 1:
-        #     raise Exception(f"Not enough memory")
-        # buffer = np.empty((n_arrays, shape[0], n_dim_0
+        # figure out how big the buffer can be
+        n_arrays = len(self)
+        allowed_memory_per_array = buffer_size // n_arrays
 
-        # # first p
-        # for i in range(len(
-        # pass
+        n_dim_1 = allowed_memory_per_array // (
+            self._data_dtype.itemsize * self._data_shape[0]
+        )
+        if n_dim_1 < 1:
+            # TODO more useful error message
+            raise Exception("Not enough memory")
+        if n_dim_1 >= self._data_shape[1]:
+            return np.nanmedian(self, axis=0)
+
+        buffer = np.empty(
+            (n_arrays, self._data_shape[0], n_dim_1), dtype=self._data_dtype
+        )
+        median = np.empty(self._data_shape, dtype=self._data_dtype)
+
+        e = n_dim_1
+        slices = [slice(0, e)]
+        while e <= self._data_shape[1]:
+            s = e
+            e += n_dim_1
+            slices.append(slice(s, min(e, self._data_shape[1])))
+
+        for s in slices:
+            for i, arr in enumerate(self):
+                # TODO is it more efficient to slice on a different axis?
+                buffer[i, :, : (s.stop - s.start)] = arr[:, s]
+            median[:, s] = np.nanmedian(buffer[:, :, : (s.stop - s.start)], axis=0)
+        return median
