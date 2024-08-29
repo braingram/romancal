@@ -214,6 +214,7 @@ class ResampleData:
                 )
                 del data, data_wht
 
+                # TODO pre-allocate
                 var_wht = resample_utils.build_driz_weight(
                     img,
                     weight_type=None,
