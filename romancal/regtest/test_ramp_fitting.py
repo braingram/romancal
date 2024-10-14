@@ -184,3 +184,4 @@ def test_rampfit_step(rampfit_result, rtdata_module, ignore_asdf_paths):
         assert not len(error_msgs), "\n".join(error_msgs)
 
     test_success()
+    assert False
