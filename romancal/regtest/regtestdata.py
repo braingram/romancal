@@ -734,6 +734,7 @@ def compare_asdf(result, truth, ignore=None, rtol=1e-05, atol=1e-08, equal_nan=T
     diff_result : DiffResult
         result of the comparison
     """
+    raise Exception("fail")
     exclude_paths = []
     ignore = ignore or []
     for path in ignore:
