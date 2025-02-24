@@ -10,6 +10,7 @@ from roman_datamodels import datamodels, maker_utils, stnode
 from stcal.alignment.util import compute_s_region_keyword, compute_scale
 
 from romancal.associations.asn_from_list import asn_from_list
+from romancal.patch_match.patch_match import to_skycell_wcs
 
 from ..assign_wcs import utils
 from ..datamodels import ModelLibrary
@@ -118,6 +119,12 @@ class ResampleData:
             log.info(f"Output pixel scale ratio: {pscale_ratio}")
 
         # build the output WCS object
+        # FIXME only do this in resample (self.single=False)
+        if output_wcs is None and not self.single:
+            # first try to use any skycell from the asn
+            if skycell_wcs := to_skycell_wcs(self.input_models):
+                # TODO logs here
+                output_wcs = skycell_wcs
         if output_wcs:
             # use the provided WCS object
             self.output_wcs = output_wcs
