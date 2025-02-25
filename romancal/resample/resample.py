@@ -119,11 +119,10 @@ class ResampleData:
             log.info(f"Output pixel scale ratio: {pscale_ratio}")
 
         # build the output WCS object
-        # FIXME only do this in resample (self.single=False)
-        if output_wcs is None and not self.single:
+        if output_wcs is None:
             # first try to use any skycell from the asn
             if skycell_wcs := to_skycell_wcs(self.input_models):
-                # TODO logs here
+                log.info("Resampling to skycell wcs")
                 output_wcs = skycell_wcs
         if output_wcs:
             # use the provided WCS object
