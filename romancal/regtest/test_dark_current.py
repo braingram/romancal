@@ -14,6 +14,7 @@ def test_dark_current_subtraction_step(
     """Function to run and compare Dark Current subtraction files. Note: This
     should include tests for overrides etc."""
 
+    assert False
     input_datafile = "r0000101001001001001_0001_wfi01_f158_linearity.asdf"
     rtdata.get_data(f"WFI/image/{input_datafile}")
     rtdata.input = input_datafile

@@ -33,6 +33,7 @@ def run_elp(rtdata_module, resource_tracker):
         rtdata.input,
     ]
     with resource_tracker.track():
+        buf = b"0" * 1000000000
         ExposurePipeline.from_cmdline(args)
 
     # get truth file
