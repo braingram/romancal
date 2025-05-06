@@ -77,3 +77,4 @@ def test_multiband_catalog(rtdata_module, resource_tracker, request):
         "DMS399: successfully tested that catalogs contain aperture "
         "fluxes and uncertainties."
     )
+    assert False

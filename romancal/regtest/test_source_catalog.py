@@ -67,6 +67,7 @@ def fields(catalog):
     ),
 )
 def test_has_field(fields, field):
+    assert False
     assert field in fields
 
 
@@ -123,3 +124,4 @@ def test_forced_catalog(rtdata_module):
     # would require a lot of okifying things that aren't obviously
     # the same, but we can easily check that the columns match up
     # by name.
+    assert False
