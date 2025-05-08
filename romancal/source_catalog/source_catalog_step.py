@@ -252,8 +252,6 @@ class SourceCatalogStep(RomanStep):
             self.output_ext = "parquet"
             result = source_catalog_model
 
-        # validate the result to flush out any lazy-loaded contents
-        result.validate()
         return result
 
 
