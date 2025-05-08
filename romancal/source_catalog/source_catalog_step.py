@@ -6,7 +6,9 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+import asdf
 import numpy as np
+import roman_datamodels.stnode as st
 from astropy.table import Table, join
 from photutils.segmentation import SegmentationImage
 from roman_datamodels import datamodels
@@ -108,7 +110,16 @@ class SourceCatalogStep(RomanStep):
                 if key == "optical_element"
                 else model.meta[key]
             )
-            source_catalog_model.meta[key] = value
+            # make new nodes here to only use new tags
+            if isinstance(value, (st.DNode | st.LNode)):
+                new_value = type(value)(
+                    asdf.treeutil.walk_and_modify(value._data, lambda n: n)
+                )
+            elif isinstance(value, st.TaggedScalarNode):
+                new_value = type(value)(value)
+            else:
+                new_value = value
+            source_catalog_model.meta[key] = new_value
 
         if self.forced_segmentation:
             source_catalog_model.meta["forced_segmentation"] = self.forced_segmentation
