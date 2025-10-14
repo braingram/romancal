@@ -756,6 +756,14 @@ def compare_asdf(result, truth, ignore=None, rtol=1e-05, atol=1e-08, equal_nan=T
             # versioned for every change between releases).
             cfg.validate_on_read = False
             with asdf.open(truth) as af1:
+                # First, check that neither contains the static manifest
+                for af in (af0, af1):
+                    for ext in af["history"]["extensions"]:
+                        if (
+                            "asdf://stsci.edu/datamodels/roman/extensions/static"
+                            in ext["extension_uri"]
+                        ):
+                            raise ValueError("static extension used")
                 # swap the inputs here so DeepDiff(truth, result)
                 # this will create output with 'new_value' referring to
                 # the value in the result and 'old_value' referring to the truth
