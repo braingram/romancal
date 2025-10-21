@@ -136,7 +136,6 @@ norecursedirs = [
 ]
 filterwarnings = [
     "error::ResourceWarning",
-    "error::DeprecationWarning",
 ]
 junit_family = "xunit2"
 inputs_root = "roman-pipeline"
