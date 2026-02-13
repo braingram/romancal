@@ -64,6 +64,7 @@ jobs:
         - macos: py311
         - macos: py312
         - macos: py313
+        - macos: py314
         # TODO: merge stdevdeps into devdeps
         - linux: py313-stdevdeps
           pytest-results-summary: true
