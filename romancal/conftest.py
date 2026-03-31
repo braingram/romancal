@@ -30,7 +30,10 @@ collect_ignore = ["lib/dqflags.py"]
 
 import threading
 import time
+
 import psutil
+
+
 class MemoryThread(threading.Thread):
     def __init__(self, *args, **kwargs):
         self.usage = []
@@ -80,6 +83,7 @@ def pytest_terminal_summary(terminalreporter, exitstatus, config):
     global _memory_thread
     terminalreporter.write(_usage_to_linegraph(_memory_thread.usage))
     terminalreporter.ensure_newline()
+
 
 @pytest.fixture
 def slow(request):
