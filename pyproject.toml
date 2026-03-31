@@ -59,6 +59,7 @@ test = [
     "pysiaf>=0.13.0",
     "deepdiff",
     "stpreview>=0.6.0",
+    "psutil",
 ]
 dev = [
     "pysiaf>=0.13.0",

@@ -28,6 +28,58 @@ if TYPE_CHECKING:
 
 collect_ignore = ["lib/dqflags.py"]
 
+import threading
+import time
+import psutil
+class MemoryThread(threading.Thread):
+    def __init__(self, *args, **kwargs):
+        self.usage = []
+        self.stop = threading.Event()
+        super().__init__(*args, **kwargs)
+
+    def run(self):
+        while not self.stop.is_set():
+            self.usage.append(psutil.virtual_memory().percent)
+            time.sleep(1)
+
+
+def pytest_sessionstart(session):
+    global _memory_thread
+    _memory_thread = MemoryThread()
+    _memory_thread.start()
+
+
+def pytest_sessionfinish(session, exitstatus):
+    global _memory_thread
+    _memory_thread.stop.set()
+    _memory_thread.join()
+
+
+def _usage_to_linegraph(usage, width=80, height=40):
+    i_per_w = max(len(usage) // width, 1)
+    xy = []
+    x = 0
+    ys = {}
+    while usage:
+        values = usage[:i_per_w]
+        usage = usage[i_per_w:]
+        y = int(sum(values) / (len(values) * 100) * height)
+        x += 1
+        ys.setdefault(y, []).append(x)
+    lines = []
+    for y in range(height)[::-1]:
+        chars = [" "] * width
+        for x in ys.get(y, []):
+            chars[x] = "+"
+        lines.append("".join(chars))
+    return "\n".join(lines) + "\n"
+
+
+def pytest_terminal_summary(terminalreporter, exitstatus, config):
+    terminalreporter.section("System Memory Usage")
+    global _memory_thread
+    terminalreporter.write(_usage_to_linegraph(_memory_thread.usage))
+    terminalreporter.ensure_newline()
 
 @pytest.fixture
 def slow(request):
