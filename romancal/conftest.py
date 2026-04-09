@@ -29,6 +29,15 @@ if TYPE_CHECKING:
 collect_ignore = ["lib/dqflags.py"]
 
 
+@pytest.fixture(scope="session", autouse=True)
+def force_cache():
+    import crds
+
+    a = crds.client.api.get_download_metadata()
+    b = crds.core.heavy_client.get_config_info("roman")
+    yield
+
+
 @pytest.fixture
 def slow(request):
     """Setup slow fixture for tests to identify if --slow
