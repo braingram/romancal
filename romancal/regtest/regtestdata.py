@@ -570,6 +570,7 @@ def compare_asdf(result, truth, ignore=None, rtol=1e-05, atol=1e-08, equal_nan=T
         TableOperator(rtol, atol, equal_nan, types=[astropy.table.Table]),
         WCSOperator(rtol, atol, equal_nan, types=[gwcs.WCS]),
     ]
+    assert_latest_datamodels(result)
     with asdf.open(result) as af0:
         with asdf.config_context() as cfg:
             # Disable validation of the truth file to allow for more
@@ -591,3 +592,13 @@ def compare_asdf(result, truth, ignore=None, rtol=1e-05, atol=1e-08, equal_nan=T
                     ignore_type_in_groups=[asdf.tags.core.NDArrayType, np.ndarray],
                 )
                 return DiffResult(diff, result, truth)
+
+
+def assert_latest_datamodels(filename):
+    uri_prefix = "asdf://stsci.edu/datamodels/roman/extensions/datamodels-"
+    latest_uri = [e for e in asdf.get_config().extensions if e.extension_uri.startswith(uri_prefix)][0].extension_uri
+    with asdf.open(filename, lazy_tree=True) as af:
+        for ext in af["history"]["extensions"]:
+            uri = ext["extension_uri"]
+            if uri.startswith(uri_prefix):
+                assert uri == latest_uri
