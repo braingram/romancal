@@ -1,6 +1,7 @@
 import logging
 
 import numpy as np
+from astropy.time import Time
 from roman_datamodels.datamodels import FpsModel, RampModel, ScienceRawModel, TvacModel
 from roman_datamodels.dqflags import pixel
 
@@ -16,6 +17,7 @@ def to_ramp_model(model):
         science_raw = ScienceRawModel.create_fake_data(model)
         if "statistics" in science_raw.meta:
             science_raw["extras"] = {"tvac": science_raw.meta.pop("statistics")}
+        science_raw.meta.file_date = Time(science_raw.meta.file_date)
         return to_ramp_model(science_raw)
 
     ramp_model = RampModel.create_from_model(
