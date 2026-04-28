@@ -9,6 +9,7 @@ import pytest
 from roman_datamodels.datamodels import RampModel, SaturationRefModel, ScienceRawModel
 from roman_datamodels.dqflags import group, pixel
 
+from romancal.dq_init.dq_initialization import to_ramp_model
 from romancal.saturation import SaturationStep
 from romancal.saturation.saturation import flag_saturation
 
@@ -327,7 +328,7 @@ def test_saturation_getbestref(setup_wfi_datamodels):
     wfi_sci_raw_model.meta["guide_star"]["window_xsize"] = 16
     wfi_sci_raw_model.meta.exposure.type = "WFI_IMAGE"
     wfi_sci_raw_model.data = np.ones(shape, dtype=np.uint16)
-    input_model = RampModel.from_science_raw(wfi_sci_raw_model)
+    input_model = to_ramp_model(wfi_sci_raw_model)
 
     # Run the pipeline
     result = SaturationStep.call(input_model, override_saturation="N/A")
