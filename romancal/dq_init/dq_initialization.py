@@ -1,3 +1,5 @@
+import copy
+import functools
 import logging
 
 import numpy as np
@@ -14,10 +16,32 @@ def to_ramp_model(model):
         return model
 
     if isinstance(model, (FpsModel | TvacModel)):
-        science_raw = ScienceRawModel.create_fake_data(model)
+        science_raw = ScienceRawModel.create_fake_data(
+            {
+                **model,
+                "data": model.data.value,
+                "amp33": model.amp33.value,
+            }
+        )
+
+        science_raw.meta.exposure.read_pattern = copy.deepcopy(
+            model.meta.exposure.read_pattern
+        )
+
+        # drop old tagged scalars
         if "statistics" in science_raw.meta:
-            science_raw["extras"] = {"tvac": science_raw.meta.pop("statistics")}
+            science_raw["extras"] = {
+                "tvac": {"meta": {"statistics": science_raw.meta.pop("statistics")}}
+            }
+
         science_raw.meta.file_date = Time(science_raw.meta.file_date)
+        for key, value in science_raw.items():
+            if hasattr(value, "_tag") and isinstance(value, str):
+                new_value = str(value)
+            else:
+                continue
+            *branches, leaf = key.split(".")
+            functools.reduce(getattr, branches, science_raw)[leaf] = new_value
         return to_ramp_model(science_raw)
 
     ramp_model = RampModel.create_from_model(
