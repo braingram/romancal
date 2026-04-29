@@ -24,16 +24,18 @@ def to_ramp_model(model):
             }
         )
 
+        # work-around issue with roman_datamodels not copying the nested read_pattern
         science_raw.meta.exposure.read_pattern = copy.deepcopy(
             model.meta.exposure.read_pattern
         )
 
-        # drop old tagged scalars
+        # move statistics to avoid conflicts with meta.statistics
         if "statistics" in science_raw.meta:
             science_raw["extras"] = {
                 "tvac": {"meta": {"statistics": science_raw.meta.pop("statistics")}}
             }
 
+        # drop old tagged scalars
         science_raw.meta.file_date = Time(science_raw.meta.file_date)
         for key, value in science_raw.items():
             if hasattr(value, "_tag") and isinstance(value, str):
