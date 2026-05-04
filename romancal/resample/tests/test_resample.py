@@ -13,7 +13,8 @@ from stcal.resample.utils import compute_mean_pixel_area
 from romancal.assign_wcs.utils import add_s_region
 from romancal.datamodels import ModelLibrary
 from romancal.lib.tests.helpers import word_precision_check
-from romancal.resample import ResampleStep, resample_utils
+from romancal.resample import ResampleStep
+from romancal.resample._utils import make_output_wcs
 
 
 class WfiSca:
@@ -531,10 +532,7 @@ def test_custom_wcs_input_entire_field_no_rotation(multiple_exposures, tmp_path)
     combined FOV of the input datamodels."""
     input_models = ModelLibrary(multiple_exposures)
 
-    output_wcs, _, _ = resample_utils.make_output_wcs(
-        input_models,
-        rotation=0,
-    )
+    output_wcs, _, _ = make_output_wcs(input_models, rotation=0)
 
     wcs_path = tmp_path / "wcs.asdf"
     asdf.AsdfFile({"wcs": output_wcs}).write_to(wcs_path)
