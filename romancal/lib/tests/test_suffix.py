@@ -8,16 +8,16 @@ from romancal.lib import suffix as s
 def test_suffix_existence():
     """Generate current suffix list and compare"""
 
-    calculated_suffixes = s.find_suffixes()
-    found_suffixes = s.combine_suffixes(
-        to_add=(calculated_suffixes, s.SUFFIXES_TO_ADD),
-        to_remove=(s.SUFFIXES_TO_DISCARD,),
+    calculated_suffixes = s._find_suffixes()
+    found_suffixes = s._combine_suffixes(
+        to_add=(calculated_suffixes, s._SUFFIXES_TO_ADD),
+        to_remove=(s._SUFFIXES_TO_DISCARD,),
     )
-    diff = set(found_suffixes).symmetric_difference(s.KNOW_SUFFIXES)
+    diff = set(found_suffixes).symmetric_difference(s._KNOW_SUFFIXES)
     assert not diff, f"Suffixes unaccounted for:\n{diff}"
 
 
-@pytest.mark.parametrize("suffix", s.KNOW_SUFFIXES)
+@pytest.mark.parametrize("suffix", s._KNOW_SUFFIXES)
 def test_suffix_removal(suffix):
     """Test suffix removal"""
     basename = "file"
@@ -27,7 +27,7 @@ def test_suffix_removal(suffix):
     assert separator == "_"
 
 
-@pytest.mark.parametrize("suffix", s.KNOW_SUFFIXES)
+@pytest.mark.parametrize("suffix", s._KNOW_SUFFIXES)
 def test_suffix_replacement(suffix, base="file", new="junk", sep="_"):
     """Test suffix replacement"""
     full_path = base + sep + suffix
