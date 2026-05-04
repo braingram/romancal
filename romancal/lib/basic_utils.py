@@ -26,27 +26,6 @@ def is_association(asn_data):
     )
 
 
-def recarray_to_ndarray(x, to_dtype="<f8"):
-    """
-    Convert a structured array to a 2D ndarray.
-
-    Parameters
-    ----------
-    x : np.record
-        Structured array
-    to_dtype : str
-        Cast all columns in `x` to this dtype in the output ndarray.
-
-    Returns
-    -------
-    array : np.ndarray
-        Numpy array (without labeled columns).
-    """
-    names = x.dtype.names
-    astype = [(name, to_dtype) for name in names]
-    return np.asarray(x.astype(astype).view(to_dtype).reshape((-1, len(names))))
-
-
 def parse_visitID(visit_id):
     """Utility to parse the visit_id into its components
 
