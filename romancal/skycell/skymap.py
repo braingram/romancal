@@ -752,7 +752,7 @@ class ProjectionRegion:
 
         # only one projection region contains each point
         return (
-            ra_in_range(
+            _ra_in_range(
                 radec[:, 0],
                 self.data["ra_min"],
                 self.data["ra_max"],
@@ -893,7 +893,7 @@ class SkyMap:
         ]:
             # each point SHOULD only be contained by a single projection region
             contained_point_indices = (
-                ra_in_range(
+                _ra_in_range(
                     radec[:, 0],
                     ra_min,
                     ra_max,
@@ -917,7 +917,7 @@ class SkyMap:
         return f"{self.__class__.__name__}({self.path})"
 
 
-def ra_in_range(ra: float, low: float, high: float):
+def _ra_in_range(ra: float, low: float, high: float):
     """whether the given longitude lies within the given min and max range, handling wrapping"""
     ra = ra % 360
     low = low % 360
