@@ -4,21 +4,7 @@ import numpy as np
 import pytest
 from astropy.table import Table
 
-from romancal.lib.basic_utils import bytes2human, is_association, recarray_to_ndarray
-
-test_data = [
-    (1000, "1000B"),
-    (1024, "1.0K"),
-    (1024 * 10, "10.0K"),
-    (100001221, "95.4M"),
-]
-
-
-@pytest.mark.parametrize("input_data, result", test_data)
-def test_bytes2human(input_data, result):
-    """test the basic conversion"""
-
-    assert bytes2human(input_data) == result
+from romancal.lib.basic_utils import is_association, recarray_to_ndarray
 
 
 def test_structured_array_utils():
