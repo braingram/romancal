@@ -1,6 +1,7 @@
 """Create an association based on skycells"""
 
 import argparse
+import json
 import logging
 import os
 import sys
@@ -259,8 +260,8 @@ def _process_groups(
                 )
 
                 # Serialize and save the association
-                _, serialized = prompt_product_asn.dump()
-                _save_association(asn_file_name, serialized)
+                with open(asn_file_name, "w") as outfile:
+                    json.dump(prompt_product_asn, outfile, indent=4)
 
 
 def _create_metadata(
@@ -306,27 +307,6 @@ def _create_metadata(
     prompt_product_asn["skycell_wcs_info"] = skycell_wcs_info
 
     return prompt_product_asn
-
-
-def _save_association(asn_file_name: str, serialized: str):
-    """
-    Save the association to a file.
-
-    Parameters
-    ----------
-    asn_file_name : str
-        Base name for the association file.
-    serialized : str
-        Serialized association content.
-
-    Returns
-    -------
-    None
-    """
-    out_name = asn_file_name + "_asn.json"
-    with open(out_name, "w") as outfile:
-        outfile.write(serialized)
-    logger.info("Wrote association: %s", out_name)
 
 
 def _fetch_filter_for(filename: str, file_index: list[FileRecord]) -> str:

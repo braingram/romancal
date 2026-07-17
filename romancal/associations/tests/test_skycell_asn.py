@@ -109,25 +109,11 @@ def test_fetch_filter_for():
     assert skycell_asn._fetch_filter_for("notfound.asdf", file_index) == "unknown"
 
 
-def test_save_association(tmp_path):
-    fname = tmp_path / "test_asn"
-    content = '{"asn_type": "image"}'
-    skycell_asn._save_association(str(fname), content)
-    out_file = tmp_path / "test_asn_asn.json"
-    assert out_file.exists()
-    assert out_file.read_text() == content
-
-
 def test_create_metadata(monkeypatch):
-    class DummyASN(dict):
-        def dump(self, *args, **kwargs):
-            return None, '{"asn_type": "image"}'
-
-    dummy_asn_obj = DummyASN()
     monkeypatch.setattr(
         skycell_asn,
         "asn_from_list",
-        lambda members, **kwargs: dummy_asn_obj,
+        lambda members, **kwargs: {"asn_type": "image"},
     )
     monkeypatch.setattr(skycell_asn, "parse_visitID", lambda vid: {"Program": "P1"})
 
