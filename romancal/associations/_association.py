@@ -11,10 +11,6 @@ from romancal.associations._exceptions import AssociationNotValidError
 
 __all__ = ["_Association"]
 
-# DMS file name templates
-_ASN_NAME_TEMPLATE_STAMP = "r{program}-{acid}_{stamp}_{type}_{sequence:03d}_asn"
-_ASN_NAME_TEMPLATE = "r{program}-{acid}_{type}_{sequence:03d}_asn"
-
 _DEGRADED_STATUS_OK = "No known degraded exposures in association."
 
 # Default product name
@@ -63,7 +59,6 @@ class _Association(MutableMapping):
         version_id=None,
         target=None,
     ):
-        self._asn_name = None
         self.version_id = version_id
         self.target = target
         self.data = {
@@ -76,52 +71,6 @@ class _Association(MutableMapping):
             "target": self.target,
         }
         self.meta = {}
-
-    @property
-    def asn_name(self):
-        """The association name
-
-        The name that identifies this association. When dumped,
-        will form the basis for the suggested file name.
-
-        Typically, it is generated based on the current state of
-        the association, but can be overridden.
-        """
-        if self._asn_name:
-            return self._asn_name
-
-        program = self.data["program"]
-        version_id = self.version_id
-        asn_type = self.data["asn_type"]
-        # sequence was a class attribute incremented several times based on test order
-        sequence = 1
-        # acidid was always a3001
-        acidid = "a3001"
-        target = self.target
-
-        if version_id:
-            name = _ASN_NAME_TEMPLATE_STAMP.format(
-                program=program,
-                acid=acidid,
-                stamp=version_id,
-                type=asn_type,
-                sequence=sequence,
-                target=target,
-            )
-        else:
-            name = _ASN_NAME_TEMPLATE.format(
-                program=program,
-                acid=acidid,
-                type=asn_type,
-                sequence=sequence,
-                target=target,
-            )
-        return name.lower()
-
-    @asn_name.setter
-    def asn_name(self, name):
-        """Override calculated association name"""
-        self._asn_name = name
 
     @classmethod
     def _asn_rule(cls):
