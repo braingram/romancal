@@ -177,34 +177,6 @@ class _Association(MutableMapping):
             raise AssociationNotValidError("Validation failed") from err
         return True
 
-    def dump(self):
-        """Serialize the association
-
-        Returns
-        -------
-        (name, serialized):
-            Tuple where the first item is the suggested
-            base name for the file.
-            Second item is the serialization.
-
-        Raises
-        ------
-        AssociationError
-            If the operation cannot be done
-
-        AssociationNotValidError
-            If the given association does not validate.
-        """
-        if self.is_valid:
-            asn_filename = self.asn_name
-            if not asn_filename.endswith(".json"):
-                asn_filename = asn_filename + ".json"
-            return (
-                asn_filename,
-                json.dumps(self.data, indent=4, separators=(",", ": ")),
-            )
-        raise AssociationNotValidError(f"Association {self} is not valid")
-
     @classmethod
     def load(cls, serialized, validate=True):
         """Marshall a previously serialized association
