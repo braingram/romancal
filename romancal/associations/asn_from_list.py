@@ -1,6 +1,7 @@
 """Create an association from a list"""
 
 import argparse
+import json
 import sys
 import warnings
 from collections import OrderedDict
@@ -28,7 +29,7 @@ def asn_from_list(items, rule=DMS_ELPP_Base, **kwargs):
 
     Returns
     -------
-    association: `Association`-based instance
+    association: dict
         The association with the items added.
 
     Notes
@@ -54,8 +55,9 @@ def asn_from_list(items, rule=DMS_ELPP_Base, **kwargs):
     # Always set data_release_id; default to 'p' if not provided
     asn["data_release_id"] = kwargs.get("data_release_id", "p")
     asn = _create_ordered_meta(asn)
+    asn.validate(asn)
 
-    return asn
+    return dict(asn)
 
 
 def _create_ordered_meta(asn):
@@ -216,5 +218,4 @@ def _cli(args=None):
             data_release_id=parsed.data_release_id,
             psf_match_reference_filter=parsed.psf_match_reference_filter,
         )
-        _, serialized = asn.dump()
-        outfile.write(serialized)
+        json.dump(asn, outfile, indent=4)

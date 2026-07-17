@@ -17,18 +17,6 @@ def test_base_association():
     assert asn["members"] == items
 
 
-def test_base_roundtrip():
-    """Write/read created base association"""
-    items = ["a", "b", "c"]
-    with pytest.warns(DeprecationWarning, match="rule argument is deprecated"):
-        asn = asn_from_list(items, rule=_Association)
-    _, serialized = asn.dump()
-    reloaded = load_asn(serialized)
-    assert asn["asn_rule"] == reloaded["asn_rule"]
-    assert asn["asn_type"] == reloaded["asn_type"]
-    assert asn["members"] == reloaded["members"]
-
-
 def test_association_target():
     """Create the simple associations with target set"""
     items = ["a", "b", "c"]
@@ -91,22 +79,6 @@ def test_default_fail():
     items = ["a"]
     with pytest.raises(AssociationNotValidError):
         _ = asn_from_list(items)
-
-
-def test_default_roundtrip():
-    """Create/Write/Read a ELPP association"""
-    product_name = "test_product"
-    items = {"a": "science", "b": "target_acq", "c": "somethingelse"}
-    asn = asn_from_list(
-        [(item, type_) for item, type_ in items.items()],
-        product_name=product_name,
-        with_exptype=True,
-    )
-    _, serialized = asn.dump()
-    reloaded = load_asn(serialized)
-    assert asn["asn_rule"] == reloaded["asn_rule"]
-    assert asn["asn_type"] == reloaded["asn_type"]
-    assert len(asn["products"]) == len(reloaded["products"])
 
 
 def test_cmdline_fails():

@@ -1,3 +1,5 @@
+import json
+
 import pytest
 import roman_datamodels.datamodels as dm
 
@@ -34,10 +36,9 @@ def example_asn_path(tmp_path):
         m.save(str(tmp_path / base_fn))
         fns.append(base_fn)
     asn = asn_from_list(fns, product_name=_PRODUCT_NAME)
-    base_fn, contents = asn.dump()
-    asn_filename = tmp_path / base_fn
+    asn_filename = tmp_path / "asn.json"
     with open(asn_filename, "w") as f:
-        f.write(contents)
+        json.dump(asn, f)
     return asn_filename
 
 

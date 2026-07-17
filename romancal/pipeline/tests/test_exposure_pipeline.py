@@ -1,3 +1,5 @@
+import json
+
 import numpy as np
 import pytest
 import roman_datamodels.datamodels as rdm
@@ -42,10 +44,9 @@ def input_value(request, tmp_path, fake_science_raw):
             asn = asn_from_list(
                 [fake_science_raw.meta.filename], product_name="foo_out"
             )
-            base_fn, contents = asn.dump()
-            asn_filename = tmp_path / base_fn
+            asn_filename = tmp_path / "asn.json"
             with open(asn_filename, "w") as f:
-                f.write(contents)
+                json.dump(asn, f)
             return asn_filename
         case "library":
             return ModelLibrary([fake_science_raw])
@@ -121,10 +122,9 @@ def test_on_disk(function_jail, fake_science_raw, on_disk):
     fake_science_raw.meta.filename = "foo.asdf"
     fake_science_raw.save(fake_science_raw.meta.filename)
     asn = asn_from_list([fake_science_raw.meta.filename], product_name="foo_out")
-    base_fn, contents = asn.dump()
-    asn_filename = base_fn
+    asn_filename = "asn.json"
     with open(asn_filename, "w") as f:
-        f.write(contents)
+        json.dump(asn, f)
 
     pipeline = ExposurePipeline()
     pipeline.on_disk = on_disk
