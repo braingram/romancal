@@ -260,7 +260,7 @@ def _process_groups(
                 )
 
                 # Serialize and save the association
-                with open(asn_file_name, "w") as outfile:
+                with open(asn_file_name + "_asn.json", "w") as outfile:
                     json.dump(prompt_product_asn, outfile, indent=4)
 
 
